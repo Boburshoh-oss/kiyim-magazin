@@ -1,5 +1,4 @@
 from django.forms import ValidationError
-from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.contrib import messages
 from account.forms import RegisterForm
@@ -12,6 +11,10 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMessage
+
+from cards.models import Card, CardItem
+from cards.views import _card_id
+import requests
 
 # Create your views here.
 def register(request):
@@ -69,9 +72,57 @@ def login(request):
         password = request.POST['password']
         user = authenticate(request,email=email, password=password)
         if user is not None:
+            try:
+                cart = Card.objects.get(card_id=_card_id(request))
+                is_cart_item_exists = CardItem.objects.filter(card=cart).exists()
+                if is_cart_item_exists:
+                    cart_item = CardItem.objects.filter(card=cart)
+                    
+                    #Getting the product variations by cart id
+                    product_variation = []
+                    for item in cart_item:
+                        variation = item.variations.all()
+                        product_variation.append(list(variation))
+                    
+                    cart_item = CardItem.objects.filter(user=user)
+            
+                    ex_var_list = []
+                    id = []
+                    for it in cart_item:
+                        existing_variation = it.variations.all()
+                        ex_var_list.append(list(existing_variation))
+                        id.append(int(it.id))
+                    
+                    for pr in product_variation:
+                        if pr in ex_var_list:
+                            index = ex_var_list.index(pr)
+                            item_id = id[index]
+                            item = CardItem.objects.get(id=item_id)
+                            item.quantity += 1
+                            item.user=user
+                            item.save()
+                        else:
+                            cart_item = CardItem.objects.filter(card=cart)
+                            for item in cart_item:
+                                item.user = user
+                                item.save()
+                    
+            except:
+                pass
+            
             login_auth(request,user)
             messages.success(request,"You are logged in.")
-            return redirect('dashboard')
+            url = request.META.get('HTTP_REFERER')
+            try:
+                query = requests.utils.urlparse(url).query
+                #next cart checkout
+                params = dict(x.split('=') for x in query.split('&'))
+                if 'next' in params:
+                    nextPage = params['next']
+                    return redirect(nextPage)
+            except:
+                return redirect('dashboard')
+        
         else:
             messages.error(request,"Invalid login credentials")
             return redirect('login')

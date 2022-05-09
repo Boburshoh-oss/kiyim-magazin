@@ -1,4 +1,5 @@
 from django.db import models
+from account.models import Account
 
 from store.models import Variation
 
@@ -11,9 +12,10 @@ class Card(models.Model):
         return self.card_id
 
 class CardItem(models.Model):
+    user = models.ForeignKey("account.Account",on_delete=models.CASCADE,null=True)
     product      = models.ForeignKey("store.Product",on_delete=models.CASCADE)
     variations   = models.ManyToManyField("store.Variation")
-    card         = models.ForeignKey("cards.Card",on_delete=models.CASCADE)
+    card         = models.ForeignKey("cards.Card",on_delete=models.CASCADE,null=True)
     quantity     = models.IntegerField()
     is_active    = models.BooleanField(default=True)
     
