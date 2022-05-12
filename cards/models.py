@@ -1,7 +1,5 @@
 from django.db import models
-from account.models import Account
 
-from store.models import Variation
 
 # Create your models here.
 class Card(models.Model):
